@@ -127,7 +127,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="TestGit.cpp" />
+    <ClCompile Include="helloworld.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="tgaimage.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="tgaimage.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
