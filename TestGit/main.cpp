@@ -110,9 +110,9 @@ int main(int argc, char** argv) {
 			pts[1].y = y1;
 			pts[2].x = x2;
 			pts[2].y = y2;
-			Vec3f n_ = (v1-v0) ^ (v2-v1);
-			n_.normalize();
-			float intensity = n_ * light_dir;
+			Vec3f n_ = (v1-v0) ^ (v2-v1);//三角形的两条边叉乘得到法向量
+			n_.normalize();//归一化
+			float intensity = n_ * light_dir;//法向量点乘光向量得到夹角Theta
 			if(intensity>0)triangle(pts, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
 	}
 	//Vec2i pts[3] = { Vec2i(10,10), Vec2i(100, 30), Vec2i(190, 160) };
