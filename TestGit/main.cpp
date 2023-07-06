@@ -45,11 +45,43 @@ void line(int x0, int y0, int x1, int y1, TGAImage& image, TGAColor color)//ÔÚim
 	}
 
 }
-void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage& image, TGAColor color)
+void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 {
-	line(t0.x, t0.y, t1.x, t1.y, image, color);
-	line(t1.x, t1.y, t2.x, t2.y, image, color);
-	line(t2.x, t2.y, t0.x, t0.y, image, color);
+
+	Vec2i bboxmin;
+	Vec2i bboxmax;
+	bboxmin.x = std::min(t[0].x, std::min(t[1].x, t[2].x));
+	bboxmin.y = std::min(t[0].y, std::min(t[1].y, t[2].y));
+	bboxmax.x = std::max(t[0].x, std::max(t[1].x, t[2].x));
+	bboxmax.y = std::max(t[0].y, std::max(t[1].y, t[2].y));
+	bboxmin.x = std::max(bboxmin.x, 0);
+	bboxmin.y = std::max(bboxmin.y, 0);
+	bboxmax.x = std::min(bboxmax.x, image.get_width() - 1);
+	bboxmax.y = std::min(bboxmax.y, image.get_height() - 1);
+	//PAx+uABx+vACx=0
+	//PAy+uABy+vACy=0
+	for (int x = bboxmin.x; x <= bboxmax.x; ++x)
+	{
+		for (int y = bboxmin.y; y <= bboxmax.y; ++y)
+		{
+			int flag = 0;
+			for (int i = 0; i < 3; ++i)
+			{
+				int x0 = t[(i + 1) % 3].x - t[i].x;
+				int y0 = t[(i + 1) % 3].y - t[i].y;
+				int x1 = x - t[i].x;
+				int y1 = y - t[i].y;
+				if (x0 * y1 - x1 * y0 > 0)flag++;
+				else if (x0 * y1 - x1 * y0 < 0)flag--;
+				else if (flag >= 0)flag++;
+				else flag--;
+			}
+			if (flag == 3 || flag == -3)
+			{
+				image.set(x, y, color);
+			}
+		}
+	}
 }
 int main(int argc, char** argv) {
 
@@ -74,12 +106,8 @@ int main(int argc, char** argv) {
 		}
 	}
 	*/
-	Vec2i t0[3] = { Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80) };
-	Vec2i t1[3] = { Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180) };
-	Vec2i t2[3] = { Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180) };
-	triangle(t0[0], t0[1], t0[2], image, white);
-	triangle(t1[0], t1[1], t1[2], image, green);
-	triangle(t2[0], t2[1], t2[2], image, red);
+	Vec2i pts[3] = { Vec2i(10,10), Vec2i(100, 30), Vec2i(190, 160) };
+	triangle(pts, image, white);
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	return 0;
