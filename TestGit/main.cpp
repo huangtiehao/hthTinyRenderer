@@ -50,6 +50,7 @@ void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 
 	Vec2i bboxmin;
 	Vec2i bboxmax;
+	//得到包围盒的边界
 	bboxmin.x = std::min(t[0].x, std::min(t[1].x, t[2].x));
 	bboxmin.y = std::min(t[0].y, std::min(t[1].y, t[2].y));
 	bboxmax.x = std::max(t[0].x, std::max(t[1].x, t[2].x));
@@ -58,8 +59,7 @@ void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 	bboxmin.y = std::max(bboxmin.y, 0);
 	bboxmax.x = std::min(bboxmax.x, image.get_width() - 1);
 	bboxmax.y = std::min(bboxmax.y, image.get_height() - 1);
-	//PAx+uABx+vACx=0
-	//PAy+uABy+vACy=0
+	//用叉乘来判断点是否在三角形
 	for (int x = bboxmin.x; x <= bboxmax.x; ++x)
 	{
 		for (int y = bboxmin.y; y <= bboxmax.y; ++y)
