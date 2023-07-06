@@ -5,11 +5,11 @@
 #include "geometry.h"
 
 const TGAColor white = TGAColor(255, 255, 255, 255);
-const TGAColor green = TGAColor(0,   255, 0,   255);
-const TGAColor red   = TGAColor(255, 0,   0,   255);
-Model* model = NULL;
+const TGAColor red = TGAColor(255, 0, 0, 255);
+const TGAColor green = TGAColor(0, 255, 0, 255);
+const TGAColor blue = TGAColor(0, 0, 255, 255);
 const int width = 800;
-const int height = 800;
+const int height = 500;
 void line(int x0, int y0, int x1, int y1, TGAImage& image, TGAColor color)//在image上的点(x0,y0)和点(x1,y1)之间画一条color的线
 {
 	if (x0 == x1 && y0 == y1)//如果是同一个点，则只画这一个点
@@ -44,6 +44,22 @@ void line(int x0, int y0, int x1, int y1, TGAImage& image, TGAColor color)//在im
 		}
 	}
 
+}
+void rasterize(Vec2i t0, Vec2i t1, TGAImage& image, TGAColor color, int ybuffer[])
+{
+	if (t0.x > t1.x)std::swap(t0, t1);
+	for (int x = t0.x; x <= t1.x; ++x)
+	{
+		int y = 1.0*(x - t0.x) / (t1.x - t0.x) * (t1.y - t0.y) + t0.y;
+		if (y > ybuffer[x])
+		{
+			ybuffer[x] = y;
+			for (int i = 0; i < 16; ++i)
+			{
+				image.set(x, i, color);
+			}
+		}
+	}
 }
 void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 {
@@ -85,11 +101,22 @@ void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 }
 int main(int argc, char** argv) {
 
-	Vec3f light_dir = { 0,0,-1 };
-	TGAImage image(width, height, TGAImage::RGB);
+	TGAImage image(width, 16, TGAImage::RGB);
+	int ybuffer[width];
+	for (int i = 0; i < width; i++) {
+		ybuffer[i] = std::numeric_limits<int>::min();
+	}
+	rasterize(Vec2i(20, 34), Vec2i(744, 400), image, red, ybuffer);
+	rasterize(Vec2i(120, 434), Vec2i(444, 400), image, green, ybuffer);
+	rasterize(Vec2i(330, 463), Vec2i(594, 200), image, blue, ybuffer);
+
+
+	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
+	image.write_tga_file("output.tga");
+	return 0;
+	/*
 	model = new Model("modelObject/african_head.obj");
-	//line(20, 13, 40, 80, image, red);
-	//line(80, 40, 13, 20, image, white);
+	Vec3f light_dir = { 0,0,-1 };
 	for (int i = 0; i < model->nfaces(); ++i)//遍历所有的三角形面
 	{
 			std::vector<int>face = model->face(i);//取其中一个面
@@ -115,10 +142,9 @@ int main(int argc, char** argv) {
 			float intensity = n_ * light_dir;//法向量点乘光向量得到夹角Theta
 			if(intensity>0)triangle(pts, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
 	}
-	//Vec2i pts[3] = { Vec2i(10,10), Vec2i(100, 30), Vec2i(190, 160) };
-	//triangle(pts, image, white);
-	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-	image.write_tga_file("output.tga");
-	return 0;
+	Vec2i pts[3] = { Vec2i(10,10), Vec2i(100, 30), Vec2i(190, 160) };
+	triangle(pts, image, white);
+	*/
+
 }
 
