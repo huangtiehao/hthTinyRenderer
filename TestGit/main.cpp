@@ -3,7 +3,7 @@
 #include "tgaimage.h"
 #include "model.h"
 #include "geometry.h"
-
+Model* model = NULL;
 const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red = TGAColor(255, 0, 0, 255);
 const TGAColor green = TGAColor(0, 255, 0, 255);
@@ -61,7 +61,19 @@ void rasterize(Vec2i t0, Vec2i t1, TGAImage& image, TGAColor color, int ybuffer[
 		}
 	}
 }
-void triangle(Vec2i* t, TGAImage& image, TGAColor color)
+Vec3f barycentric(Vec3f A, Vec3f B, Vec3f C, Vec3f P) {//求重心坐标的u，v
+	Vec3f s[2];
+	for (int i = 2; i--; ) {
+		s[i][0] = C[i] - A[i];
+		s[i][1] = B[i] - A[i];
+		s[i][2] = A[i] - P[i];
+	}
+	Vec3f u = cross(s[0], s[1]);
+	if (std::abs(u[2]) > 1e-2) // dont forget that u[2] is integer. If it is zero then triangle ABC is degenerate
+		return Vec3f(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
+	return Vec3f(-1, 1, 1); // in this case generate negative coordinates, it will be thrown away by the rasterizator
+}
+void triangle(Vec3f* t, int **zbuffer, TGAImage& image, TGAColor color)
 {
 
 	Vec2i bboxmin;
@@ -80,71 +92,57 @@ void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 	{
 		for (int y = bboxmin.y; y <= bboxmax.y; ++y)
 		{
-			int flag = 0;
-			for (int i = 0; i < 3; ++i)
+			Vec3f p;
+			p.x = x;
+			p.y = y;
+			p.z = 0;
+			Vec3f u=barycentric(t[0], t[1], t[2], p);
+			p[2] = u[0] * t[0].z + u[1] * t[1].z + u[2] * t[2].z;
+			if (u[0] < 0 || u[1] < 0 || 1 - u[0] - u[1] < 0)continue;
+			if (p[2] > zbuffer[x][y])
 			{
-				int x0 = t[(i + 1) % 3].x - t[i].x;
-				int y0 = t[(i + 1) % 3].y - t[i].y;
-				int x1 = x - t[i].x;
-				int y1 = y - t[i].y;
-				if (x0 * y1 - x1 * y0 > 0)flag++;
-				else if (x0 * y1 - x1 * y0 < 0)flag--;
-				else if (flag >= 0)flag++;
-				else flag--;
-			}
-			if (flag == 3 || flag == -3)
-			{
+				zbuffer[x][y] = p[2];
 				image.set(x, y, color);
 			}
 		}
 	}
 }
+Vec3f world2screen(Vec3f v) {
+	return Vec3f(int((v.x + 1.) * width / 2. + .5), int((v.y + 1.) * height / 2. + .5), (v.z+1.)*800/2+.5);
+}
 int main(int argc, char** argv) {
-
-	TGAImage image(width, 16, TGAImage::RGB);
-	int ybuffer[width];
-	for (int i = 0; i < width; i++) {
-		ybuffer[i] = std::numeric_limits<int>::min();
+	Vec3f light_dir = { 0,0,-1 };
+	TGAImage image(width, height, TGAImage::RGB);
+	model = new Model("modelObject/african_head/african_head.obj");
+	int* zbuffer[width];
+	for (int i = 0; i < width; ++i)
+	{
+		zbuffer[i] = new int[height];
 	}
-	rasterize(Vec2i(20, 34), Vec2i(744, 400), image, red, ybuffer);
-	rasterize(Vec2i(120, 434), Vec2i(444, 400), image, green, ybuffer);
-	rasterize(Vec2i(330, 463), Vec2i(594, 200), image, blue, ybuffer);
+	for (int i = 0; i < width; i++)
+	{
+		for (int j = 0; j < height; ++j)
+		{
+			zbuffer[i][j] = std::numeric_limits<int>::min();
+		}
+	}
 
+	int m = model->nfaces();
+	for (int i = 0; i < m; ++i)
+	{
+		std::vector<int>face = model->face(i);
+		Vec3f pts[3];
+		for (int i = 0; i < 3; i++) pts[i] = world2screen(model->vert(face[i]));
+		Vec3f n_=cross(pts[1] - pts[0],pts[2]-pts[1]);
+		n_.normalize();
+		float intensity = n_.x*light_dir.x+n_.y*light_dir.y+ n_.z * light_dir.z;
+		printf("%f\n", intensity);
+		if (intensity > 0)triangle(pts, zbuffer,image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
+	}
 
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	return 0;
-	/*
-	model = new Model("modelObject/african_head.obj");
-	Vec3f light_dir = { 0,0,-1 };
-	for (int i = 0; i < model->nfaces(); ++i)//遍历所有的三角形面
-	{
-			std::vector<int>face = model->face(i);//取其中一个面
-			Vec3f v0 = model->vert(face[0]);//得到该面的一个点
-			Vec3f v1 = model->vert(face[1]);//得到该面的下一个点
-			Vec3f v2 = model->vert(face[2]);//得到该面的下一个点
-			//printf("%f %f %f %f\n", v0.x, v0.y, v1.x, v1.y);
-			int x0 = (v0.x + 1) * width / 2;
-			int y0 = (v0.y + 1) * height / 2;
-			int x1 = (v1.x + 1) * width / 2;
-			int y1 = (v1.y + 1) * height / 2;
-			int x2 = (v2.x + 1) * width / 2;
-			int y2 = (v2.y + 1) * height / 2;
-			Vec2i pts[3];
-			pts[0].x = x0;
-			pts[0].y = y0;
-			pts[1].x = x1;
-			pts[1].y = y1;
-			pts[2].x = x2;
-			pts[2].y = y2;
-			Vec3f n_ = (v1-v0) ^ (v2-v1);//三角形的两条边叉乘得到法向量
-			n_.normalize();//归一化
-			float intensity = n_ * light_dir;//法向量点乘光向量得到夹角Theta
-			if(intensity>0)triangle(pts, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
-	}
-	Vec2i pts[3] = { Vec2i(10,10), Vec2i(100, 30), Vec2i(190, 160) };
-	triangle(pts, image, white);
-	*/
 
 }
 
