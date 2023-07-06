@@ -85,6 +85,7 @@ void triangle(Vec2i* t, TGAImage& image, TGAColor color)
 }
 int main(int argc, char** argv) {
 
+	Vec3f light_dir = { 0,0,-1 };
 	TGAImage image(width, height, TGAImage::RGB);
 	model = new Model("modelObject/african_head.obj");
 	//line(20, 13, 40, 80, image, red);
@@ -109,7 +110,10 @@ int main(int argc, char** argv) {
 			pts[1].y = y1;
 			pts[2].x = x2;
 			pts[2].y = y2;
-			triangle(pts, image, TGAColor(rand() % 255, rand() % 255, rand() % 255, 255));
+			Vec3f n_ = (v1-v0) ^ (v2-v1);
+			n_.normalize();
+			float intensity = n_ * light_dir;
+			if(intensity>0)triangle(pts, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
 	}
 	//Vec2i pts[3] = { Vec2i(10,10), Vec2i(100, 30), Vec2i(190, 160) };
 	//triangle(pts, image, white);
