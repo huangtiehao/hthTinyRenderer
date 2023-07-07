@@ -1,5 +1,7 @@
 #include <vector>
+#include <iostream>
 #include <cmath>
+#include <limits>
 #include "tgaimage.h"
 #include "model.h"
 #include "geometry.h"
@@ -10,6 +12,9 @@ const TGAColor green = TGAColor(0, 255, 0, 255);
 const TGAColor blue = TGAColor(0, 0, 255, 255);
 const int width = 800;
 const int height = 800;
+Vec3<float>eye = { 1,1,3 };
+Vec3<float>center = { 0,0,0 };
+Vec3<float>worldUp = { 0,1,0 };
 void line(int x0, int y0, int x1, int y1, TGAImage& image, TGAColor color)//在image上的点(x0,y0)和点(x1,y1)之间画一条color的线
 {
 	if (x0 == x1 && y0 == y1)//如果是同一个点，则只画这一个点
@@ -45,6 +50,26 @@ void line(int x0, int y0, int x1, int y1, TGAImage& image, TGAColor color)//在im
 	}
 
 }
+Matrix ModelView()
+{
+	Matrix M=Matrix::identity(4);
+	Matrix inv_t = Matrix::identity(4);
+	Vec3<float>i1;
+	Vec3<float>j1;
+	Vec3<float>k1;
+	k1 = eye - center;
+	i1 = k1 ^ worldUp;
+	j1 = i1 ^ k1;
+	for (int i = 0; i < 3; ++i)
+	{
+		M[0][i] = i1[i];
+		M[1][i] = j1[i];
+		M[2][i] = k1[i];
+		inv_t[i][3] = -eye[i];
+	}
+	M = M * inv_t;
+	return M;
+}
 void rasterize(Vec2i t0, Vec2i t1, TGAImage& image, TGAColor color, int ybuffer[])
 {
 	if (t0.x > t1.x)std::swap(t0, t1);
@@ -68,7 +93,7 @@ Vec3f barycentric(Vec3f A, Vec3f B, Vec3f C, Vec3f P) {//求重心坐标的u，v
 		s[i][1] = B[i] - A[i];
 		s[i][2] = A[i] - P[i];
 	}
-	Vec3f u = cross(s[0], s[1]);
+	Vec3<float> u = (s[0]^s[1]);
 	if (std::abs(u[2]) > 1e-2) // dont forget that u[2] is integer. If it is zero then triangle ABC is degenerate
 		return Vec3f(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
 	return Vec3f(-1, 1, 1); // in this case generate negative coordinates, it will be thrown away by the rasterizator
@@ -106,7 +131,7 @@ void triangle(Vec3f* t,Vec2i* uv,float **zbuffer, float intensity,TGAImage &imag
 				uvP = uv[0] * u[0] + uv[1] * u[1] + uv[2] * u[2];
 				zbuffer[x][y] = p[2];
 				TGAColor color = model->diffuse(uvP);
-				image.set(x,y, TGAColor(color.r * intensity, color.g * intensity, color.b * intensity));
+				image.set(x,y, TGAColor(color.bgra[2] * intensity, color.bgra[1] * intensity, color.bgra[0] * intensity));
 			}
 		}
 	}
@@ -115,6 +140,7 @@ Vec3f world2screen(Vec3f v) {
 	return Vec3f(int((v.x + 1.) * width / 2. + .5), int((v.y + 1.) * height / 2. + .5), v.z);
 }
 int main(int argc, char** argv) {
+
 	Vec3f light_dir = { 0,0,-1 };
 	TGAImage image(width, height, TGAImage::RGB);
 	model = new Model("modelObject/african_head/african_head.obj");
@@ -132,20 +158,23 @@ int main(int argc, char** argv) {
 	}
 
 	int m = model->nfaces();
+	//Matrix M = ModelView();
+	//Matrix Projection= Matrix::identity(4);
+
 	for (int i = 0; i < m; ++i)
 	{
 		std::vector<int>face = model->face(i);
-		Vec3f worldC[3];
-		Vec3f screenC[3];
-
+		Vec3<float> worldC[3];
+		Vec3<float> screenC[3];
 
 		for (int j = 0; j < 3; j++)
 		{
 			worldC[j] = model->vert(face[j]);
-			worldC[j] = worldC[j] / (1 - worldC[j].z/3);
+
+			worldC[j] = worldC[j]* (1./(1 - worldC[j].z/3));
 			screenC[j] = world2screen(worldC[j]);
 		}
-		Vec3f n_ = cross(worldC[2]-worldC[1], worldC[1]-worldC[0]);
+		Vec3<float> n_ = (worldC[2]-worldC[1])^ (worldC[1]-worldC[0]);
 		n_.normalize();
 		float intensity = n_.x * light_dir.x + n_.y * light_dir.y + n_.z * light_dir.z;
 		if (intensity > 0)
