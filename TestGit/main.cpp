@@ -9,7 +9,7 @@ const TGAColor red = TGAColor(255, 0, 0, 255);
 const TGAColor green = TGAColor(0, 255, 0, 255);
 const TGAColor blue = TGAColor(0, 0, 255, 255);
 const int width = 800;
-const int height = 500;
+const int height = 800;
 void line(int x0, int y0, int x1, int y1, TGAImage& image, TGAColor color)//在image上的点(x0,y0)和点(x1,y1)之间画一条color的线
 {
 	if (x0 == x1 && y0 == y1)//如果是同一个点，则只画这一个点
@@ -143,6 +143,7 @@ int main(int argc, char** argv) {
 		for (int j = 0; j < 3; j++)
 		{
 			worldC[j] = model->vert(face[j]);
+			worldC[j] = worldC[j] / (1 - worldC[j].z/3);
 			screenC[j] = world2screen(worldC[j]);
 		}
 		Vec3f n_ = cross(worldC[2]-worldC[1], worldC[1]-worldC[0]);
