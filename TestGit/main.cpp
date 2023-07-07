@@ -106,7 +106,6 @@ void triangle(Vec3f* t,Vec2i* uv,float **zbuffer, float intensity,TGAImage &imag
 				uvP = uv[0] * u[0] + uv[1] * u[1] + uv[2] * u[2];
 				zbuffer[x][y] = p[2];
 				TGAColor color = model->diffuse(uvP);
-				
 				image.set(x,y, TGAColor(color.r * intensity, color.g * intensity, color.b * intensity));
 			}
 		}
