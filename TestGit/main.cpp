@@ -73,7 +73,7 @@ Vec3f barycentric(Vec3f A, Vec3f B, Vec3f C, Vec3f P) {//求重心坐标的u，v
 		return Vec3f(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
 	return Vec3f(-1, 1, 1); // in this case generate negative coordinates, it will be thrown away by the rasterizator
 }
-void triangle(Vec3f* t, int **zbuffer, TGAImage& image, TGAColor color)
+void triangle(Vec3f* t,Vec2i* uv,float **zbuffer, float intensity,TGAImage &image)
 {
 
 	Vec2i bboxmin;
@@ -98,32 +98,37 @@ void triangle(Vec3f* t, int **zbuffer, TGAImage& image, TGAColor color)
 			p.z = 0;
 			Vec3f u=barycentric(t[0], t[1], t[2], p);
 			p[2] = u[0] * t[0].z + u[1] * t[1].z + u[2] * t[2].z;
-			if (u[0] < 0 || u[1] < 0 || 1 - u[0] - u[1] < 0)continue;
+			Vec2i uvP;
+
+			if (u[0] < 0 || u[1] < 0 || 1. - u[0] - u[1] < 0)continue;
 			if (p[2] > zbuffer[x][y])
 			{
+				uvP = uv[0] * u[0] + uv[1] * u[1] + uv[2] * u[2];
 				zbuffer[x][y] = p[2];
-				image.set(x, y, color);
+				TGAColor color = model->diffuse(uvP);
+				
+				image.set(x,y, TGAColor(color.r * intensity, color.g * intensity, color.b * intensity));
 			}
 		}
 	}
 }
 Vec3f world2screen(Vec3f v) {
-	return Vec3f(int((v.x + 1.) * width / 2. + .5), int((v.y + 1.) * height / 2. + .5), (v.z+1.)*800/2+.5);
+	return Vec3f(int((v.x + 1.) * width / 2. + .5), int((v.y + 1.) * height / 2. + .5), v.z);
 }
 int main(int argc, char** argv) {
 	Vec3f light_dir = { 0,0,-1 };
 	TGAImage image(width, height, TGAImage::RGB);
 	model = new Model("modelObject/african_head/african_head.obj");
-	int* zbuffer[width];
+	float* zbuffer[width];
 	for (int i = 0; i < width; ++i)
 	{
-		zbuffer[i] = new int[height];
+		zbuffer[i] = new float[height];
 	}
 	for (int i = 0; i < width; i++)
 	{
 		for (int j = 0; j < height; ++j)
 		{
-			zbuffer[i][j] = std::numeric_limits<int>::min();
+			zbuffer[i][j] = -5;
 		}
 	}
 
@@ -131,13 +136,26 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < m; ++i)
 	{
 		std::vector<int>face = model->face(i);
-		Vec3f pts[3];
-		for (int i = 0; i < 3; i++) pts[i] = world2screen(model->vert(face[i]));
-		Vec3f n_=cross(pts[1] - pts[0],pts[2]-pts[1]);
+		Vec3f worldC[3];
+		Vec3f screenC[3];
+
+
+		for (int j = 0; j < 3; j++)
+		{
+			worldC[j] = model->vert(face[j]);
+			screenC[j] = world2screen(worldC[j]);
+		}
+		Vec3f n_ = cross(worldC[2]-worldC[1], worldC[1]-worldC[0]);
 		n_.normalize();
-		float intensity = n_.x*light_dir.x+n_.y*light_dir.y+ n_.z * light_dir.z;
-		printf("%f\n", intensity);
-		if (intensity > 0)triangle(pts, zbuffer,image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
+		float intensity = n_.x * light_dir.x + n_.y * light_dir.y + n_.z * light_dir.z;
+		if (intensity > 0)
+		{
+			Vec2i uv[3];
+			for (int k = 0; k < 3; k++) {
+				uv[k] = model->uv(i, k);
+			}
+			triangle(screenC, uv, zbuffer,intensity, image);
+		}
 	}
 
 	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
